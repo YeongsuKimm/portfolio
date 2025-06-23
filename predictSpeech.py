@@ -11,9 +11,6 @@ import numpy as np
 import torchaudio.transforms as transforms
 import whisper
 
-DATA_DIR = "data"
-SAVE_DIR ="processed"
-
 # Device setup
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -58,5 +55,4 @@ def transcribe_audio(audio_path):
     model = whisper.load_model("base")
     result = model.transcribe(audio_path)
     text = result["text"]
-    
     return text

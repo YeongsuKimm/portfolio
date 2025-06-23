@@ -129,6 +129,18 @@
           <label for="audio-file">Choose an audio file:</label>
           <input type="file" id="audio-file" name="audio-file" accept="audio/*" required />
         </div>
+        <div class="form-group">
+          <label for="model">Choose a model:</label>
+          <br>
+          <select name="model" id="model">
+            <option value="cmultimodal">Classification Multimodel with text and audio features</option>
+            <option value="caudio">Classification Audio-only features</option>
+            <option value="ctext">Classification Text-only features</option>
+            <option value="rmultimodal">Regression Multimodel with text and audio features</option>
+            <option value="raudio">Regression Audio-only features</option>
+            <option value="rtext">Regression Text-only features</option>
+          </select>
+        </div>
         <button type="submit">Upload Audio</button>
       </form>
   
@@ -152,7 +164,7 @@
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
-
+      const modelChoice = document.getElementById('model').value;
       // Get the selected audio file
       const file = audioFileInput.files[0];
 
@@ -166,10 +178,9 @@
         // Prepare the FormData object for the POST request
         const formData = new FormData();
         formData.append('audio-file', file);
-
-        // Display status message
+        formData.append('model', modelChoice)
         statusMessage.textContent = "Uploading...";
-
+        console.log(modelChoice)
         try {
           // Send the POST request using Fetch API
           const response = await fetch('/speechAnalysis', {

@@ -1,10 +1,12 @@
 from flask import Flask, render_template, request, flash, jsonify
 from werkzeug.utils import secure_filename
-# from predictSpeech import extract_audio_features, extract_text_features, transcribe_audio
+from predictSpeech import extract_audio_features, extract_text_features, transcribe_audio
 import tempfile
 import os
 import io
-
+from pydub import AudioSegment 
+from evaluator_class import get_preds_class
+from evaluator_reg import get_preds_reg
 
 app = Flask(__name__)
 
@@ -33,14 +35,17 @@ projects = {
     }
 }
 
+# Replace this with your actual logic
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'mp3', 'wav', 'm4a', 'ogg'}
 
 @app.route("/speechAnalysis", methods=["GET", "POST"])
 def speechAnalysis():
     if request.method == "GET":
-        return render_template("speechAnalysis.html", context=projects["speechAnalysis"])
+        return render_template("speechAnalysis.html", context={"title": "Speech Analysis"})
+
     elif request.method == "POST":
+        print("recieved")
         if 'audio-file' not in request.files:
             return jsonify({'error': 'No file part'}), 400
 
@@ -48,40 +53,66 @@ def speechAnalysis():
 
         if file.filename == '':
             return jsonify({'error': 'No selected file'}), 400
-        
+
         if file and allowed_file(file.filename):
-            # Secure the filename to prevent path traversal
             filename = secure_filename(file.filename)
+            file_ext = filename.rsplit('.', 1)[1].lower()
 
-            # Read the file into memory (as a BytesIO object)
-            file_content = io.BytesIO(file.read())
-        
             try:
-                # Use tempfile to create a temporary file-like object from the BytesIO object
-                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                    temp_file.write(file_content.getvalue())
-                    temp_file_path = temp_file.name
-                    text = transcribe_audio(temp_file_path)
-                    os.remove(temp_file_path)
-                    response = {
-                        'message': 'Audio analysis completed successfully.',
-                        'filename': filename,
-                        'transcription': text  # Example result: transcribed text
-                    }
+                # Read uploaded file into memory
+                audio_data = io.BytesIO(file.read())
+                # Convert audio to WAV if needed
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_wav:
+                    if file_ext != "wav":
+                        audio = AudioSegment.from_file(audio_data, format=file_ext)
+                        audio.export(temp_wav.name, format="wav")
+                    else:
+                        temp_wav.write(audio_data.getvalue())
+                    wav_path = temp_wav.name
+                print(request.form.get("model"))
+                if request.form.get("model") == "rmultimodal":
+                    text_transcribed = transcribe_audio(wav_path)
+                    audio = extract_audio_features(wav_path)
+                    text = extract_text_features(text_transcribed)
+                    results = get_preds_reg("both",text,audio)
+                    print(results)
+                elif request.form.get("model") == "cmultimodal":
+                    text_transcribed = transcribe_audio(wav_path)
+                    text = extract_text_features(text_transcribed)
+                    audio = extract_audio_features(wav_path)
+                    results = get_preds_class("both",text,audio)
+                    print(results)
+                elif request.form.get("model") == "raudio":
+                    audio = extract_audio_features(wav_path)
+                    results = get_preds_reg("audio",audio=audio)
+                    print(results)
+                elif request.form.get("model") == "caudio":
+                    audio = extract_audio_features(wav_path)
+                    results = get_preds_class("audio",audio=audio)
+                    print(results)
+                elif request.form.get("model") == "rtext":
+                    text_transcribed = transcribe_audio(wav_path)
+                    text = extract_text_features(text_transcribed)
+                    results = get_preds_reg("text",text=text)
+                    print(results)
+                elif request.form.get("model") == "ctext":
+                    text_transcribed = transcribe_audio(wav_path)
+                    text = extract_text_features(text_transcribed)
+                    results = get_preds_class("text",text=text)
+                    print(results)
+                # Clean up temp file
+                os.remove(wav_path)
 
-                    return jsonify(response), 200
+                return jsonify({
+                    'message': 'Audio analysis completed successfully.',
+                    'results': results,
+                    'mode': request.form.get("model")
+                }), 200
+
             except Exception as e:
                 return jsonify({'error': f'Error processing audio file: {str(e)}'}), 500
-            model_path = "static/assets/models/audio_only_reg_model_t70.pth"
-            DEVICE = "cuda"
-            response = {
-                'message': 'Audio analysis completed successfully.',
-                'filename': filename,
-                'analysis': 'Mock analysis result for audio file.'
-            }
-            return jsonify(response), 200
 
-    return jsonify({'error': 'Invalid file format'}), 400
+        return jsonify({'error': 'Invalid file format'}), 400
 
 if __name__ == '__main__':
     app.run(debug=True)
