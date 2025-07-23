@@ -7,6 +7,7 @@ import io
 from pydub import AudioSegment 
 from evaluator_class import get_preds_class
 from evaluator_reg import get_preds_reg
+import math
 
 app = Flask(__name__)
 
@@ -74,7 +75,7 @@ def speechAnalysis():
                     text_transcribed = transcribe_audio(wav_path)
                     audio = extract_audio_features(wav_path)
                     text = extract_text_features(text_transcribed)
-                    results = get_preds_reg("both",text,audio)
+                    results = str(round(math.pow(10, get_preds_reg("both",text,audio))))
                     print(results)
                 elif request.form.get("model") == "cmultimodal":
                     text_transcribed = transcribe_audio(wav_path)
@@ -85,6 +86,7 @@ def speechAnalysis():
                 elif request.form.get("model") == "raudio":
                     audio = extract_audio_features(wav_path)
                     results = get_preds_reg("audio",audio=audio)
+                    results = str(round(math.pow(10, get_preds_reg("audio",audio=audio))))
                     print(results)
                 elif request.form.get("model") == "caudio":
                     audio = extract_audio_features(wav_path)
@@ -93,7 +95,7 @@ def speechAnalysis():
                 elif request.form.get("model") == "rtext":
                     text_transcribed = transcribe_audio(wav_path)
                     text = extract_text_features(text_transcribed)
-                    results = get_preds_reg("text",text=text)
+                    results = str(round(math.pow(10, get_preds_reg("textad",text=text))))
                     print(results)
                 elif request.form.get("model") == "ctext":
                     text_transcribed = transcribe_audio(wav_path)
